@@ -4,6 +4,7 @@
 --visually block right-side blt menu to indicate noninteractability?
 --change mouse color when dragging?
 --set eyedropper position when calling setup()
+--fix pointer image on mouseover event
 
 ColorPicker = ColorPicker or blt_class()
 ColorPicker.queued_items = {}
@@ -45,6 +46,16 @@ function ColorPicker:init(id,parameters,create_cb,...)
 		name = instance_name,
 		layer = 999,
 		visible = false
+	})
+	
+	self._blur_bg = self._panel:bitmap({
+		name = "blur_bg",
+		color = Color.white,
+		layer = -1,
+		w = self._panel:w(),
+		h = self._panel:h(),
+		texture = "guis/textures/test_blur_df",
+		render_template = "VertexColorTexturedBlur3D"
 	})
 	
 	self._instance_name = instance_name
@@ -172,7 +183,7 @@ function ColorPicker:init(id,parameters,create_cb,...)
 					self:get_current_color(color)
 					self:check_eyedropper_position()
 				end,
-				mouseover = nil,
+				mouseover = callback(self,self,"set_pointer_image","link"),
 				mouseover_end = nil
 			}
 		},
@@ -190,6 +201,7 @@ function ColorPicker:init(id,parameters,create_cb,...)
 				on_leftdrag = nil,
 				drop_color = nil,
 				mouseover = function(x,y,o)
+					self:set_pointer_image("link")
 					o:set_alpha(0.5)
 				end,
 				mouseover_end = function(x,y,o)
@@ -728,15 +740,18 @@ end
 function ColorPicker:setup(parameters)
 	parameters = parameters or {}
 
-	self.current_color = parameters.current_color or self.current_color
-	self.previous_color = parameters.previous_color or self.previous_color
+	self.current_color = parameters.color or self.current_color
+	self.previous_color = parameters.color or self.previous_color
 
 	local r,g,b = self.current_color:unpack()
 	self.hue,self.saturation,self.value = self.get_hsvl_from_rgb(r,g,b)
 	
-	self._done_cb = parameters.done_callback
-	self._changed_cb = parameters.changed_callback
+	self._done_cb = parameters.done_callback or self._done_cb
+	self._changed_cb = parameters.changed_callback or self._changed_cb
 	
+	if parameters.default_palettes then 
+		self.parameters.default_palettes = table.deep_map_copy(parameters.default_palettes)
+	end
 	for i = 1,self.num_palettes,1 do 
 		local palette_name = "palette_" .. tostring(i)
 		local palette = self._panel:child(palette_name)
@@ -746,11 +761,8 @@ function ColorPicker:setup(parameters)
 		self._mouseover_objects[palette_name] = nil
 	end
 	local recenter_title = false
-	for k,v in pairs({} or parameters) do 
+	for k,v in pairs(parameters or {}) do 
 		--if k == title_box_w then recenter_title = true end
-		if k == "palettes" then 
-		
-		end
 		self.parameters[k] = v --or self.parameters[k]
 	end
 	parameters = self.parameters
@@ -930,7 +942,7 @@ function ColorPicker:setup(parameters)
 					self:set_pointer_image("grab")
 				end,
 				mouseover = function(x,y,o)
-					self:set_pointer_image("hand")
+					self:set_pointer_image("link")
 				end,
 				mouseover_end = nil
 			}
@@ -1030,6 +1042,12 @@ end
 
 function ColorPicker:Hide(accepted,do_cb)
 	if self._active then 
+--		if self._moused_object_name then 
+--			local moused_object_data = self._mouseover_objects[self._moused_object_name]
+--			if moused_object_data and moused_object_data.callbacks.mouseover_end then 
+--				moused_object_data.callbacks.mouseover_end(0,0,self._panel:child(self._moused_object_name))
+--			end
+--		end
 		managers.mouse_pointer:remove_mouse("colorpicker")
 		game_state_machine:_set_controller_enabled(true)
 		self._panel:key_release(nil)
@@ -1100,7 +1118,10 @@ function ColorPicker:on_mouse_moved(o,x,y)
 				if moused_object_data then 
 					if moused_object_data.callbacks.mouseover then 
 						moused_object_data.callbacks.mouseover(x,y,self._panel:child(moused_object_name))
+					else
+						self:set_pointer_image("arrow")
 					end
+					
 					if moused_object_data.mouseover_tooltip then 
 						self:set_tooltip(moused_object_data.mouseover_tooltip)
 					end
@@ -1118,7 +1139,6 @@ function ColorPicker:on_mouse_moved(o,x,y)
 		if moused_object_name then 
 			moused_object_data = self._mouseover_objects[moused_object_name]
 			if not moused_object_data.callbacks.mouseover then 
-				self:set_pointer_image("arrow")
 			end
 		else
 			self._moused_object_name = nil
@@ -1533,6 +1553,7 @@ function ColorPicker:get_palettes()
 			table.insert(result,i,palette:color())
 		end
 	end
+	return result
 end
 
 function ColorPicker:reset_palettes()

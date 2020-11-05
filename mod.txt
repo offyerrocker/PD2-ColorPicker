@@ -1,11 +1,12 @@
 {
 	"name" : "Colorpicker",
-	"description" : "A utility mod to allow selecting a color from a color-wheel.",
+	"description" : "A utility mod to allow for easy color selection.",
 	"author" : "Offyerrocker",
 	"contact" : "Discord: Offyerrocker#3878",
 	"version" : "1",
 	"blt_version" : 2,
-	"color" : "255 128 0",
+	"color" : "255 255 255",
+	"image" : "colp.png",
 	"hooks" : [
 		{
 			"hook_id" : "lib/managers/menumanager",
