@@ -55,6 +55,7 @@ function ColorPicker:init(id,parameters,create_cb,...)
 		w = self._panel:w(),
 		h = self._panel:h(),
 		texture = "guis/textures/test_blur_df",
+		texture_rect = nil,
 		render_template = "VertexColorTexturedBlur3D"
 	})
 	
@@ -360,6 +361,14 @@ function ColorPicker:init(id,parameters,create_cb,...)
 		title_box_w = 300,
 		title_box_h = 50,
 		title_box_color = Color(0.5,0.5,0.5),
+		
+--		blur_bg_w = 1280, --optional parameters, nil by default so as to inherit parent panel traits
+--		blur_bg_h = 720,
+--		blur_bg_x = 0,
+--		blur_bg_y = 0,
+		blur_bg_alpha = 1, --visible by default, hidden if true
+		blur_bg_texture = "guis/textures/test_blur_df",
+		blur_bg_texture_rect = nil, --should be a table containing four number values
 		
 		default_palettes = {
 			Color(1,0,0),
@@ -898,6 +907,23 @@ function ColorPicker:setup(parameters)
 	tooltip_label:set_text(managers.localization:text("menu_colorpicker_prompt_default"))
 	tooltip_label:set_position(parameters.tooltip_box_x + parameters.tooltip_label_margin,parameters.tooltip_box_y + parameters.tooltip_label_margin)
 	
+	local blur_bg = self._blur_bg
+	blur_bg:set_image(parameters.blur_bg_texture,blur_texture_rect and unpack(blur_texture_rect))
+	if parameters.blur_bg_x then 
+		blur_bg:set_x(parameters.blur_bg_x)
+	end
+	if parameters.blur_bg_y then 
+		blur_bg:set_y(parameters.blur_bg_y)
+	end
+	if parameters.blur_bg_w then 
+		blur_bg:set_w(parameters.blur_bg_w)
+	end
+	if parameters.blur_bg_h then 
+		blur_bg:set_h(parameters.blur_bg_h)
+	end
+	if parameters.blur_bg_alpha then 
+		blur_bg:set_alpha(parameters.blur_bg_alpha)
+	end
 	
 	local title_label = self._panel:child("title_label")
 	title_label:set_text(parameters.title_label_text)
