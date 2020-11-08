@@ -1054,7 +1054,8 @@ function ColorPicker:Show(parameters)
 	ColorPicker.current_menu = self
 	self._panel:show()
 	if not self._active then
-		self._panel:key_release(callback(self,self,"key_press")) --todo fix this (nonfunctional for unknown reasons)
+		ColorPicker._WS:connect_keyboard(Input:keyboard())
+		self._panel:key_press(callback(self,self,"key_press")) --todo fix this (nonfunctional for unknown reasons)
 		managers.mouse_pointer:use_mouse({
 		mouse_move = callback(self, self, "on_mouse_moved"),
 		mouse_click = callback(self, self, "on_mouse_clicked"),
@@ -1078,7 +1079,8 @@ function ColorPicker:Hide(accepted,do_cb)
 --		end
 		managers.mouse_pointer:remove_mouse("colorpicker")
 		game_state_machine:_set_controller_enabled(true)
-		self._panel:key_release(nil)
+		ColorPicker._WS:disconnect_keyboard()
+		self._panel:key_press(nil)
 		self._active = false
 		if do_cb then 
 			if accepted then 
@@ -1088,7 +1090,7 @@ function ColorPicker:Hide(accepted,do_cb)
 				end
 				Hooks:Call("ColorPicker" .. self._name,color,palettes)
 			else
-				local color,palettes = self:get_current_color(),self:get_palettes()
+				local color,palettes = self:get_previous_color(),self:get_palettes()
 				if type(self._done_cb) == "function" then 
 					self._done_cb(color,palettes)
 				end
@@ -1424,9 +1426,9 @@ end
 
 function ColorPicker:key_press(o,k) --nonfunctional for reasons unknown
 	if k == Idstring("esc") or k == Idstring("escape") then 
-		self:Hide()
+		self:Hide(false,true)
 	elseif k == Idstring("enter") then 
-		self:Hide(true)
+		self:Hide(true,true)
 --	elseif k == Idstring("insert") or (k == Idstring("v") and ctrl_held) then --todo paste from clipboard through keystroke
 	end
 end
