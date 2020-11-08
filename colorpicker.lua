@@ -6,6 +6,7 @@
 --set eyedropper position when calling setup()
 --fix pointer image on mouseover event
 
+
 ColorPicker = ColorPicker or blt_class()
 ColorPicker.queued_items = {}
 function ColorPicker.CreateQueuedMenus()
@@ -1034,8 +1035,9 @@ function ColorPicker:update_hue_slider(x,y) --clbk hue slider
 	local s_x,s_y = slider:position()
 --	local y = _y + s_y
 	local h = slider:h()
-	self:set_hue(360 * math.clamp(y-s_y,0,h)/h,true)
 	
+	local hue = 360 * math.clamp(y-s_y,0,h)/h
+	self:set_hue(hue,true)
 	local hue_slider_cursor = self._panel:child("hue_slider_cursor")
 	hue_slider_cursor:set_y(math.clamp(y, s_y, s_y + h) - (hue_slider_cursor:h() / 2))
 end
@@ -1387,7 +1389,6 @@ function ColorPicker:set_hue(hue,from_slider)
 		hue = 360
 	end
 	self.hue = hue
-	
 	local color = Color(self.get_rgb_from_hsv(hue,1,1))
 	self._panel:child("gradient_s"):set_gradient_points({
 		0,
@@ -1403,7 +1404,7 @@ function ColorPicker:set_hue(hue,from_slider)
 		local hue_slider_cursor = self._panel:child("hue_slider_cursor")
 		hue_slider_cursor:set_y(s_y + (h * hue/360) - (hue_slider_cursor:h() / 2))
 	else
-		self:set_current_color(Color(self.get_rgb_from_hsv(self.hue,self.saturation,self.value)))
+		self:set_current_color(Color(self.get_rgb_from_hsv(self.hue,self.saturation,self.value)),from_slider)
 	end
 end
 
