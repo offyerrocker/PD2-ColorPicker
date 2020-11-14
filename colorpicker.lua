@@ -1067,6 +1067,10 @@ function ColorPicker:Show(parameters)
 	})
 		game_state_machine:_set_controller_enabled(false)
 		self._active = true
+		
+		if managers.menu and managers.menu:active_menu() and managers.menu:active_menu().renderer then 
+			managers.menu:active_menu().renderer:disable_input(math.huge)
+		end
 	end
 end
 
@@ -1097,6 +1101,9 @@ function ColorPicker:Hide(accepted,do_cb)
 				end
 				Hooks:Call("ColorPicker" .. self._name,color,palettes)
 			end
+		end
+		if managers.menu and managers.menu:active_menu() and managers.menu:active_menu().renderer then 
+			managers.menu:active_menu().renderer:disable_input(0.1)
 		end
 	end
 	self._panel:hide()
@@ -1589,9 +1596,9 @@ function ColorPicker:on_mouse_doubleclicked(o,button,x,y)
 end
 
 function ColorPicker:key_press(o,k) --nonfunctional for reasons unknown
-	if k == Idstring("c") then --k == Idstring("esc") or k == Idstring("escape") 
+	if k == Idstring("c") or k == Idstring("esc") or k == Idstring("escape") then
 		self:Hide(false,true)
-	elseif k == Idstring("a") then --k == Idstring("enter")
+	elseif k == Idstring("a") or k == Idstring("enter") then 
 		self:Hide(true,true)
 --	elseif k == Idstring("insert") or (k == Idstring("v") and ctrl_held) then --todo paste from clipboard through keystroke
 	end
