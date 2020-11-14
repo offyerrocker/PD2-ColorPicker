@@ -309,7 +309,7 @@ function ColorPicker:init(id,parameters,create_cb,...)
 		accept_button_box_w = 100,
 		accept_button_box_h = 24,
 		accept_button_box_color = Color("5B8554"),
-		accept_button_label_text = "Accept",
+		accept_button_label_text = "[A] Accept",
 		accept_button_label_font = tweak_data.hud.medium_font,
 		accept_button_label_font_size = 16,
 		accept_button_label_color = Color.white,
@@ -319,7 +319,7 @@ function ColorPicker:init(id,parameters,create_cb,...)
 		cancel_button_box_w = 100,
 		cancel_button_box_h = 24,
 		cancel_button_box_color = Color("7a7a7a"),
-		cancel_button_label_text = "Cancel",
+		cancel_button_label_text = "[C] Cancel",
 		cancel_button_label_font = tweak_data.hud.medium_font,
 		cancel_button_label_font_size = 16,
 		cancel_button_label_color = Color.white,
@@ -750,7 +750,8 @@ end
 function ColorPicker:setup(parameters)
 	parameters = parameters or {}
 
-	self.current_color = parameters.color or self.current_color
+--	self.current_color = parameters.color or self.current_color
+	self:set_current_color(parameters.color or self.current_color)
 	self.previous_color = parameters.color or self.previous_color
 
 	local r,g,b = self.current_color:unpack()
@@ -1086,19 +1087,339 @@ function ColorPicker:Hide(accepted,do_cb)
 			if accepted then 
 				local color,palettes = self:get_current_color(),self:get_palettes()
 				if type(self._done_cb) == "function" then 
-					self._done_cb(color,palettes)
+					self._done_cb(color,palettes,accepted)
 				end
 				Hooks:Call("ColorPicker" .. self._name,color,palettes)
 			else
 				local color,palettes = self:get_previous_color(),self:get_palettes()
 				if type(self._done_cb) == "function" then 
-					self._done_cb(color,palettes)
+					self._done_cb(color,palettes,false)
 				end
 				Hooks:Call("ColorPicker" .. self._name,color,palettes)
 			end
 		end
 	end
 	self._panel:hide()
+end
+
+function ColorPicker:set_pointer_image(icon)
+	if icon == "none" then 
+		managers.mouse_pointer._mouse:child("pointer"):hide()
+	else
+		managers.mouse_pointer._mouse:child("pointer"):show()
+		managers.mouse_pointer:set_pointer_image(icon)
+	end
+--	managers.mouse_pointer:set_pointer_image("grab") --arrow (cursor arrow), link (pointer hand). hand (open hand), grab (closed hand)
+end
+
+function ColorPicker:set_held_color(color)
+	self.held_color = color
+end
+
+function ColorPicker:get_held_color()
+	return self.held_color
+end
+
+function ColorPicker:get_name()
+	return self._name
+end
+
+function ColorPicker:active()
+	return self._active
+end
+
+function ColorPicker:set_palette_color(color,index)
+	local palette = self._panel and self._panel:child("palette_" .. tostring(index))
+	if palette then 
+		return palette:color()
+	end
+end
+
+function ColorPicker:get_palette_color(index) --not used anywhere
+	local palette = self._panel and self._panel:child("palette_" .. tostring(index))
+	if palette then 
+		return palette:color()
+	end
+end
+
+function ColorPicker.get_hsvl_from_rgb(r,g,b)
+	local value = math.max(r,g,b)
+	local xm = math.min(r,g,b)
+	local chroma = value-xm
+	local hue = 0
+	if chroma == 0 then 
+		hue = 0
+	elseif value == r then
+		hue = 60 * (0 + ((g-b)/chroma))
+	elseif value == g then
+		hue = 60 * (2 + ((b-r)/chroma))
+	elseif value == b then 
+		hue = 60 * (4 + ((r-g)/chroma))
+	end
+	local saturation = 0
+	if value == 0 then 
+		return 0,0,0,0
+	else
+		saturation = chroma/value
+	end
+	local lightness = (value + xm) / 2
+	return ((hue - 1) % 360) + 1,saturation,value,lightness
+end
+
+function ColorPicker.get_rgb_from_hsv(_hue,saturation,value)
+	local chroma = value * saturation
+	local r,g,b
+	if not _hue or (_hue <= 0) then 
+		--oops! all zeroes
+		return 0,0,0
+	else
+		local hue = math.clamp(_hue,0,360) / 60
+		local n = chroma * (1 - math.abs((hue % 2) - 1))
+		if 0 <= hue and hue <= 1 then 
+			r = chroma
+			g = n
+			b = 0
+		elseif 1 <= hue and hue <= 2 then 
+			r = n
+			g = chroma
+			b = 0
+		elseif 2 <= hue and hue <= 3 then 
+			r = 0
+			g = chroma
+			b = n
+		elseif 3 <= hue and hue <= 4 then 
+			r = 0
+			g = n
+			b = chroma
+		elseif 4 <= hue and hue <= 5 then 
+			r = n
+			g = 0
+			b = chroma
+		elseif 5 <= hue and hue <= 6 then 
+			r = chroma
+			g = 0
+			b = n
+		else --dead code
+			log("[ColorPicker] Error! hue exceeded expected bounds: " .. tostring(hue))
+			r = 0
+			g = 0
+			b = 0
+		end
+	end
+	local m = value - chroma
+	r = r + m
+	g = g + m
+	b = b + m
+	return r,g,b
+end
+
+function ColorPicker.get_rgb_from_hue(hue) --should not be used
+	return (1+math.cos(hue))/2,(1+math.cos(hue+240))/2,(1+math.cos(hue+120))/2
+end
+
+function ColorPicker.get_hue_from_rgb(r,g,b)
+	return ( (math.atan2(math.sqrt(3) * (g - b),2 * (r - g - b)) - 1) % 360) + 1
+end
+
+function ColorPicker:set_hue(hue,from_slider)
+	if hue == 0 then 
+		hue = 360
+	end
+	self.hue = hue
+	local color = Color(self.get_rgb_from_hsv(hue,1,1))
+	self._panel:child("gradient_s"):set_gradient_points({
+		0,
+		color:with_alpha(0),
+		1,
+		color
+	})
+	
+	if not from_slider then 
+		local slider = self._panel:child("hue_slider_bg")
+		local s_x,s_y = slider:position()
+		local h = slider:h()
+		local hue_slider_cursor = self._panel:child("hue_slider_cursor")
+		hue_slider_cursor:set_y(s_y + (h * hue/360) - (hue_slider_cursor:h() / 2))
+	else
+		self:set_current_color(Color(self.get_rgb_from_hsv(self.hue,self.saturation,self.value)),from_slider)
+	end
+end
+
+function ColorPicker:check_hue_slider_position()
+	--really it's more like setting the slider's position according to color
+	
+	local slider = self._panel:child("hue_slider_bg")
+	local slider_cursor = self._panel:child("hue_slider_cursor")
+	local s_x,s_y = slider:position()
+	local h = slider:h()
+	slider_cursor:set_y(s_y + math.clamp(h * self.hue/360,0,h) - (slider_cursor:h() / 2))
+end
+
+function ColorPicker:set_preview_current_color(color)
+	self._panel:child("preview_current_box"):set_color(color)
+end
+
+function ColorPicker:set_tooltip(id)
+	self._panel:child("tooltip_label"):set_text(id)
+end
+
+function ColorPicker:set_hex_label(color)
+	self._panel:child("hex_label"):set_text(color:to_hex())
+end
+
+function ColorPicker:get_current_color()
+	return self.current_color
+end
+
+function ColorPicker:set_current_color(color,skip_check_hue,skip_changed_clbk)
+	self.current_color = color
+	self:set_preview_current_color(color)
+	self:set_hex_label(color)
+	
+	if not skip_changed_clbk and type(self._changed_cb) == "function" then 
+		self._changed_cb(color)
+	end
+	
+	if not skip_check_hue then 
+		local hue,saturation,value = self.get_hsvl_from_rgb(color:unpack())
+		self:set_hue(hue)
+		self:set_value(value)
+		self:set_saturation(saturation)
+		self:check_hue_slider_position()
+		self:check_eyedropper_position()
+	end
+end
+
+function ColorPicker:set_value(value)
+	self.value = value
+end
+
+function ColorPicker:set_saturation(saturation)
+	self.saturation = saturation
+end
+
+function ColorPicker:check_eyedropper_position()
+	local gamut_box = self._panel:child("gamut_box_bg")
+	
+	local x,y = gamut_box:position()
+	local w,h = gamut_box:size()
+	
+	self._panel:child("eyedropper_circle"):set_center(x + (w * self.saturation),y + (h * (1 - self.value)))
+end
+
+function ColorPicker:get_previous_color()
+	return self.previous_color
+end
+
+function ColorPicker:set_previous_color(color)
+	self.previous_color = color
+	self._panel:child("preview_previous_box"):set_color(color)
+end
+
+function ColorPicker:copy_current_color() --copies the hex value of the current color to the clipboard
+	Application:set_clipboard(self:get_current_color():to_hex())
+end
+
+function ColorPicker:paste_to_current_color()
+	local color = self:get_clipboard_color()
+	if color then 
+		self:set_current_color(color)
+	end
+end
+
+function ColorPicker:get_clipboard_color()
+	local s = Application:get_clipboard()
+	if s then 
+		return self:parse_color(tostring(s))
+	end
+end
+
+function ColorPicker:parse_color(input)
+	--does its darndest to interpret a color from input of multiple types
+
+	if Color[input] and type(Color[input]) == "userdata" then 
+		return Color[input]
+	elseif input == "magenta" then --red, yellow, green, cyan, blue, purple, white, and black are all defined, among others. magenta and orange are not
+		return Color(1,0,1)
+	elseif input == "orange" then 
+		return Color(1,0.5,0)
+	end
+	
+	local a,b = string.find(tostring(input),"0x")
+	if b and string.len(input) > b then   --find hex string
+		a = string.sub(input,b+1)
+		if a then 
+			return Color:from_hex(a)
+		end
+	end
+	
+	b = getmetatable(input) 
+	if type(b) == "table" then 
+		if b.type_name == "Vector3" then 
+			return Color(unpack(input))
+		end
+	end
+	
+	a = LuaNetworking:StringToColour(input)
+	if a then 
+		return a
+	end
+	
+	if type(input) == "table" then 
+		if input[1] and input[2] and input[3] and (type(input[1]) == "number" and type(input[2]) == "number" and type(input[3]) == "number") then 
+			if input[1] > 1 or input[2] > 1 or input[3] > 1 then 
+				return Color(input[1]/255,input[2]/255,input[3]/255)
+			else
+				return Color(input[1],input[2],input[3])
+			end
+		end
+		return Color(unpack(input))
+	end
+	
+	if type(input) == "number" then --get hex string from number
+		return Color(string.format("%X",input))
+	else
+		-- attempt converting input to a number, then that number to hex
+		b = tonumber(input)
+		if b then 
+			return Color(string.format("%X",b))
+		end
+	end
+	
+--	return Color(input) 
+end
+
+function ColorPicker:pre_destroy()
+	if ColorPicker.current_menu == self then 
+		ColorPicker.current_menu = nil
+	end
+	if alive(self._panel) then 
+		self._panel:parent():remove(self._panel)
+	end
+	self._panel = nil
+end
+
+function ColorPicker:get_palettes()
+	local result = {}
+	for i = 1,self.num_palettes,1 do 
+		local palette_name = "palette_" .. i
+		local palette = self._panel:child(palette_name)
+		if alive(palette) then 
+			table.insert(result,i,palette:color())
+		end
+	end
+	return result
+end
+
+function ColorPicker:reset_palettes()
+	self.parameters.palette = table.deep_map_copy(self.parameters.default_palettes)
+	for i = 1,self.num_palettes,1 do 
+		local palette_name = "palette_" .. i
+		local palette = self._panel:child(palette_name)
+		if alive(palette) then 
+			palette:set_color(self.parameters.palette[i] or Color.white)
+		end
+	end
 end
 
 function ColorPicker:get_mouseover_object(x,y)
@@ -1267,332 +1588,12 @@ function ColorPicker:on_mouse_doubleclicked(o,button,x,y)
 	end
 end
 
-function ColorPicker:set_pointer_image(icon)
-	if icon == "none" then 
-		managers.mouse_pointer._mouse:child("pointer"):hide()
-	else
-		managers.mouse_pointer._mouse:child("pointer"):show()
-		managers.mouse_pointer:set_pointer_image(icon)
-	end
---	managers.mouse_pointer:set_pointer_image("grab") --arrow (cursor arrow), link (pointer hand). hand (open hand), grab (closed hand)
-end
-
-function ColorPicker:set_held_color(color)
-	self.held_color = color
-end
-
-function ColorPicker:get_held_color()
-	return self.held_color
-end
-
-function ColorPicker:get_name()
-	return self._name
-end
-
-function ColorPicker:active()
-	return self._active
-end
-
-function ColorPicker:set_palette_color(color,index)
-	local palette = self._panel and self._panel:child("palette_" .. tostring(index))
-	if palette then 
-		return palette:color()
-	end
-end
-
-function ColorPicker:get_palette_color(index) --not used anywhere
-	local palette = self._panel and self._panel:child("palette_" .. tostring(index))
-	if palette then 
-		return palette:color()
-	end
-end
-
-function ColorPicker.get_hsvl_from_rgb(r,g,b)
-	local value = math.max(r,g,b)
-	local xm = math.min(r,g,b)
-	local chroma = value-xm
-	local hue = 0
-	if chroma == 0 then 
-		hue = 0
-	elseif value == r then
-		hue = 60 * (0 + ((g-b)/chroma))
-	elseif value == g then
-		hue = 60 * (2 + ((b-r)/chroma))
-	elseif value == b then 
-		hue = 60 * (4 + ((r-g)/chroma))
-	end
-	local saturation = 0
-	if value == 0 then 
-		return 0,0,0,0
-	else
-		saturation = chroma/value
-	end
-	local lightness = (value + xm) / 2
-	return ((hue - 1) % 360) + 1,saturation,value,lightness
-end
-
-function ColorPicker.get_rgb_from_hsv(_hue,saturation,value)
-	local chroma = value * saturation
-	local r,g,b
-	if not _hue or (_hue <= 0) then 
-		--oops! all zeroes
-		return 0,0,0
-	else
-		local hue = math.clamp(_hue,0,360) / 60
-		local n = chroma * (1 - math.abs((hue % 2) - 1))
-		if 0 <= hue and hue <= 1 then 
-			r = chroma
-			g = n
-			b = 0
-		elseif 1 <= hue and hue <= 2 then 
-			r = n
-			g = chroma
-			b = 0
-		elseif 2 <= hue and hue <= 3 then 
-			r = 0
-			g = chroma
-			b = n
-		elseif 3 <= hue and hue <= 4 then 
-			r = 0
-			g = n
-			b = chroma
-		elseif 4 <= hue and hue <= 5 then 
-			r = n
-			g = 0
-			b = chroma
-		elseif 5 <= hue and hue <= 6 then 
-			r = chroma
-			g = 0
-			b = n
-		else --dead code
-			log("[ColorPicker] Error! hue exceeded expected bounds: " .. tostring(hue))
-			r = 0
-			g = 0
-			b = 0
-		end
-	end
-	local m = value - chroma
-	r = r + m
-	g = g + m
-	b = b + m
-	return r,g,b
-end
-
-function ColorPicker.get_rgb_from_hue(hue) --should not be used
-	return (1+math.cos(hue))/2,(1+math.cos(hue+240))/2,(1+math.cos(hue+120))/2
-end
-
-function ColorPicker.get_hue_from_rgb(r,g,b)
-	return ( (math.atan2(math.sqrt(3) * (g - b),2 * (r - g - b)) - 1) % 360) + 1
-end
-
-function ColorPicker:set_hue(hue,from_slider)
-	if hue == 0 then 
-		hue = 360
-	end
-	self.hue = hue
-	local color = Color(self.get_rgb_from_hsv(hue,1,1))
-	self._panel:child("gradient_s"):set_gradient_points({
-		0,
-		color:with_alpha(0),
-		1,
-		color
-	})
-	
-	if not from_slider then 
-		local slider = self._panel:child("hue_slider_bg")
-		local s_x,s_y = slider:position()
-		local h = slider:h()
-		local hue_slider_cursor = self._panel:child("hue_slider_cursor")
-		hue_slider_cursor:set_y(s_y + (h * hue/360) - (hue_slider_cursor:h() / 2))
-	else
-		self:set_current_color(Color(self.get_rgb_from_hsv(self.hue,self.saturation,self.value)),from_slider)
-	end
-end
-
-function ColorPicker:check_hue_slider_position()
-	--really it's more like setting the slider's position according to color
-	
-	local slider = self._panel:child("hue_slider_bg")
-	local slider_cursor = self._panel:child("hue_slider_cursor")
-	local s_x,s_y = slider:position()
-	local h = slider:h()
-	slider_cursor:set_y(s_y + math.clamp(h * self.hue/360,0,h) - (slider_cursor:h() / 2))
-end
-
-function ColorPicker:set_preview_current_color(color)
-	self._panel:child("preview_current_box"):set_color(color)
-end
-
 function ColorPicker:key_press(o,k) --nonfunctional for reasons unknown
-	if k == Idstring("esc") or k == Idstring("escape") then 
+	if k == Idstring("c") then --k == Idstring("esc") or k == Idstring("escape") 
 		self:Hide(false,true)
-	elseif k == Idstring("enter") then 
+	elseif k == Idstring("a") then --k == Idstring("enter")
 		self:Hide(true,true)
 --	elseif k == Idstring("insert") or (k == Idstring("v") and ctrl_held) then --todo paste from clipboard through keystroke
-	end
-end
-
-function ColorPicker:set_tooltip(id)
-	self._panel:child("tooltip_label"):set_text(id)
-end
-
-function ColorPicker:set_hex_label(color)
-	self._panel:child("hex_label"):set_text(color:to_hex())
-end
-
-function ColorPicker:get_current_color()
-	return self.current_color
-end
-
-function ColorPicker:set_current_color(color,skip_check_hue,skip_changed_clbk)
-	self.current_color = color
-	self:set_preview_current_color(color)
-	self:set_hex_label(color)
-	
-	if not skip_changed_clbk and type(self._changed_cb) == "function" then 
-		self._changed_cb(color)
-	end
-	
-	if not skip_check_hue then 
-		local hue,saturation,value = self.get_hsvl_from_rgb(color:unpack())
-		self:set_hue(hue)
-		self:set_value(value)
-		self:set_saturation(saturation)
-		self:check_hue_slider_position()
-		self:check_eyedropper_position()
-	end
-end
-
-function ColorPicker:set_value(value)
-	self.value = value
-end
-
-function ColorPicker:set_saturation(saturation)
-	self.saturation = saturation
-end
-
-function ColorPicker:check_eyedropper_position()
-	local gamut_box = self._panel:child("gamut_box_bg")
-	
-	local x,y = gamut_box:position()
-	local w,h = gamut_box:size()
-	
-	self._panel:child("eyedropper_circle"):set_center(x + (w * self.saturation),y + (h * (1 - self.value)))
-end
-
-function ColorPicker:get_previous_color()
-	return self.previous_color
-end
-
-function ColorPicker:set_previous_color(color)
-	self.previous_color = color
-	self._panel:child("preview_previous_box"):set_color(color)
-end
-
-function ColorPicker:copy_current_color() --copies the hex value of the current color to the clipboard
-	Application:set_clipboard(self:get_current_color():to_hex())
-end
-
-function ColorPicker:paste_to_current_color()
-	local color = self:get_clipboard_color()
-	if color then 
-		self:set_held_color(color)
-	end
-end
-
-function ColorPicker:get_clipboard_color()
-	local s = Application:get_clipboard()
-	if s then 
-		return self:parse_color(tostring(s))
-	end
-end
-
-function ColorPicker:parse_color(input)
-	--does its darndest to interpret a color from input of multiple types
-
-	if Color[input] and type(Color[input]) == "userdata" then 
-		return Color[input]
-	elseif input == "magenta" then --red, yellow, green, cyan, blue, purple, white, and black are all defined, among others. magenta and orange are not
-		return Color(1,0,1)
-	elseif input == "orange" then 
-		return Color(1,0.5,0)
-	end
-	
-	local a,b = string.find(tostring(input),"0x")
-	if b and string.len(input) > b then   --find hex string
-		a = string.sub(input,b+1)
-		if a then 
-			return Color:from_hex(a)
-		end
-	end
-	
-	b = getmetatable(input) 
-	if type(b) == "table" then 
-		if b.type_name == "Vector3" then 
-			return Color(unpack(input))
-		end
-	end
-	
-	a = LuaNetworking:StringToColour(input)
-	if a then 
-		return a
-	end
-	
-	if type(input) == "table" then 
-		if input[1] and input[2] and input[3] and (type(input[1]) == "number" and type(input[2]) == "number" and type(input[3]) == "number") then 
-			if input[1] > 1 or input[2] > 1 or input[3] > 1 then 
-				return Color(input[1]/255,input[2]/255,input[3]/255)
-			else
-				return Color(input[1],input[2],input[3])
-			end
-		end
-		return Color(unpack(input))
-	end
-	
-	if type(input) == "number" then --get hex string from number
-		return Color(string.format("%X",input))
-	else
-		-- attempt converting input to a number, then that number to hex
-		b = tonumber(input)
-		if b then 
-			return Color(string.format("%X",b))
-		end
-	end
-	
---	return Color(input) 
-end
-
-function ColorPicker:pre_destroy()
-	if ColorPicker.current_menu == self then 
-		ColorPicker.current_menu = nil
-	end
-	if alive(self._panel) then 
-		self._panel:parent():remove(self._panel)
-	end
-	self._panel = nil
-end
-
-function ColorPicker:get_palettes()
-	local result = {}
-	for i = 1,self.num_palettes,1 do 
-		local palette_name = "palette_" .. i
-		local palette = self._panel:child(palette_name)
-		if alive(palette) then 
-			table.insert(result,i,palette:color())
-		end
-	end
-	return result
-end
-
-function ColorPicker:reset_palettes()
-	self.parameters.palette = table.deep_map_copy(self.parameters.default_palettes)
-	for i = 1,self.num_palettes,1 do 
-		local palette_name = "palette_" .. i
-		local palette = self._panel:child(palette_name)
-		if alive(palette) then 
-			palette:set_color(self.parameters.palette[i] or Color.white)
-		end
 	end
 end
 
@@ -1600,15 +1601,15 @@ Hooks:Add("BaseNetworkSessionOnLoadComplete","colorpicker_onloaded",ColorPicker.
 Hooks:Add("LocalizationManagerPostInit", "colorpicker_addlocalization", function( loc )
 	loc:add_localized_strings({
 		menu_colorpicker_prompt_reset_palettes = "RESET PALETTE SWATCHES\nDouble-click to reset your palette swatches to their default colors.",
-		menu_colorpicker_prompt_close_accept = "ACCEPT\nClick to confirm color choice and exit.",
-		menu_colorpicker_prompt_close_cancel = "CANCEL\nClick to cancel color choice and exit.",
+		menu_colorpicker_prompt_close_accept = "ACCEPT\nClick to confirm color choice and exit.\nYou can also press the \"A\" key.",
+		menu_colorpicker_prompt_close_cancel = "CANCEL\nClick to cancel color choice and exit.\nYou can also press the \"C\" key.",
 		menu_colorpicker_prompt_gamut_box = "GAMUT BOX\nClick and drag to select a color.",
 		menu_colorpicker_prompt_default = "\nHover over an object for more information.",
 		--You can click on the gamut box to select a color, use palette swatches to save your choices, or drag colors from box to box.",
 		menu_colorpicker_prompt_hue_slider = "HUE SLIDER\nClick and drag to change hue.",
 		menu_colorpicker_prompt_select_previous = "PREVIOUS COLOR\nThe previous color choice.\nClick to revert your current color to this option.",
 		menu_colorpicker_prompt_select_current = "CURRENT COLOR\nYour new color choice.\nYou can click and drag to save it to the palette swatches.",
-		menu_colorpicker_prompt_hex = "HEX CODE\nThe hexadecimal color code for your current color.\nRight-click to copy hex color code to clipboard.",
+		menu_colorpicker_prompt_hex = "HEX CODE\nThe hexadecimal color code for your current color.\nLeft-click to copy hex color code to clipboard.\nRight-click to paste color from clipboard.",
 		menu_colorpicker_notif_copied = "HEX CODE\nCopied to clipboard!",
 		menu_colorpicker_prompt_palette = "PALETTE SWATCH\nClick to select this palette swatch.\nRight-click to save your current color to this palette swatch.",
 		menu_colorpicker_notif_reset_palettes_success = "PALETTE SWATCH\nSwatches have been reset to default values!"
