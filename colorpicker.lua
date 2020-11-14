@@ -1341,8 +1341,10 @@ function ColorPicker:get_clipboard_color()
 	end
 end
 
-function ColorPicker:parse_color(input)
-	--does its darndest to interpret a color from input of multiple types
+function ColorPicker:parse_color(_input)
+	--does its darndest to interpret a color from input of multiple types,
+	--but without taking the lame way out and returning a black color if no color interpretation was found
+	local input = string.gsub(_input,"%s","")
 
 	if Color[input] and type(Color[input]) == "userdata" then 
 		return Color[input]
@@ -1352,11 +1354,28 @@ function ColorPicker:parse_color(input)
 		return Color(1,0.5,0)
 	end
 	
-	local a,b = string.find(tostring(input),"0x")
+	local a,b = string.find(input,"0x")
 	if b and string.len(input) > b then   --find hex string
 		a = string.sub(input,b+1)
 		if a then 
 			return Color:from_hex(a)
+		end
+	end
+	local a,b = string.find(input,"#")
+	if b and string.len(input) > b then   --find hex string, but again (hashtag signifier instead of 0x)
+		a = string.sub(input,b+1)
+		if a then 
+			return Color:from_hex(a)
+		end
+	end
+	
+	
+	if string.len(input) == 6 then 
+		local potential_hex = string.lower(input)
+		if not string.find(potential_hex,"[ghijklmnopqrstuvwxyz]") then 
+			if string.gsub(potential_hex,"%w","") == "" then 
+				return Color:from_hex(potential_hex)
+			end
 		end
 	end
 	
@@ -1372,19 +1391,19 @@ function ColorPicker:parse_color(input)
 		return a
 	end
 	
-	if type(input) == "table" then 
-		if input[1] and input[2] and input[3] and (type(input[1]) == "number" and type(input[2]) == "number" and type(input[3]) == "number") then 
-			if input[1] > 1 or input[2] > 1 or input[3] > 1 then 
-				return Color(input[1]/255,input[2]/255,input[3]/255)
+	if type(_input) == "table" then 
+		if _input[1] and _input[2] and _input[3] and (type(_input[1]) == "number" and type(_input[2]) == "number" and type(_input[3]) == "number") then 
+			if _input[1] > 1 or _input[2] > 1 or _input[3] > 1 then 
+				return Color(_input[1]/255,_input[2]/255,_input[3]/255)
 			else
-				return Color(input[1],input[2],input[3])
+				return Color(_input[1],_input[2],_input[3])
 			end
 		end
-		return Color(unpack(input))
+		return Color(unpack(_input))
 	end
 	
-	if type(input) == "number" then --get hex string from number
-		return Color(string.format("%X",input))
+	if type(_input) == "number" then --get hex string from number
+		return Color(string.format("%X",_input))
 	else
 		-- attempt converting input to a number, then that number to hex
 		b = tonumber(input)
@@ -1392,6 +1411,7 @@ function ColorPicker:parse_color(input)
 			return Color(string.format("%X",b))
 		end
 	end
+	
 	
 --	return Color(input) 
 end
