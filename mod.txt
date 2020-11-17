@@ -6,7 +6,7 @@
 	"version" : "1",
 	"blt_version" : 2,
 	"color" : "255 255 255",
-	"image" : "colp.png",
+	"image" : "icon.png",
 	"hooks" : [
 		{
 			"hook_id" : "lib/managers/menumanager",
