@@ -1624,6 +1624,14 @@ function ColorPicker:key_press(o,k) --nonfunctional for reasons unknown
 	end
 end
 
+function ColorPicker.color_to_hex(color)
+	if not color then return end
+	if Color.to_hex then 
+		return Color.to_hex(color)
+	end
+	return string.format("%x%x%x", color.r * 255,color.g * 255,color.b * 255)
+end
+
 Hooks:Add("BaseNetworkSessionOnLoadComplete","colorpicker_onloaded",ColorPicker.CreateQueuedMenus)
 Hooks:Add("LocalizationManagerPostInit", "colorpicker_addlocalization", function( loc )
 	loc:add_localized_strings({
