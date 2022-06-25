@@ -938,7 +938,6 @@ function ColorPicker:setup(parameters)
 	
 	local palette_size = parameters.palette_box_size
 	local palette_spacing = parameters.palette_box_spacing
-	local col_mt = getmetatable(Color)
 	
 	for i = 1,self.num_palettes,1 do 
 		local j = i - 1
@@ -947,12 +946,12 @@ function ColorPicker:setup(parameters)
 		local palette_color_string = "ffffff"
 		if parameters.palettes and parameters.palettes[i] then 
 			palette_color_string = parameters.palettes[i]
-			if getmetatable(palette_color_string) == col_mt then 
+			if type(palette_color_string) == "userdata" then 
 				palette_color = parameters.palettes[i]
 			end
 		elseif parameters.default_palettes and parameters.default_palettes[i] then 
 			palette_color_string = parameters.default_palettes[i]
-			if getmetatable(palette_color_string) == col_mt then 
+			if type(palette_color_string) == "userdata" then 
 				palette_color = parameters.default_palettes[i]
 			end
 		end
@@ -1655,21 +1654,11 @@ function ColorPicker.color_to_hex(color)
 	return string.format("%x%x%x", color.r * 255,color.g * 255,color.b * 255)
 end
 
+local mod_path = ModPath
 Hooks:Add("BaseNetworkSessionOnLoadComplete","colorpicker_onloaded",ColorPicker.CreateQueuedMenus)
 Hooks:Add("LocalizationManagerPostInit", "colorpicker_addlocalization", function( loc )
-	loc:add_localized_strings({
-		menu_colorpicker_prompt_reset_palettes = "RESET PALETTE SWATCHES\nDouble-click to reset your palette swatches to their default colors.",
-		menu_colorpicker_prompt_close_accept = "ACCEPT\nClick to confirm color choice and exit.\nYou can also press the \"A\" key.",
-		menu_colorpicker_prompt_close_cancel = "CANCEL\nClick to cancel color choice and exit.\nYou can also press the \"C\" key.",
-		menu_colorpicker_prompt_gamut_box = "GAMUT BOX\nClick and drag to select a color.",
-		menu_colorpicker_prompt_default = "\nHover over an object for more information.",
-		--You can click on the gamut box to select a color, use palette swatches to save your choices, or drag colors from box to box.",
-		menu_colorpicker_prompt_hue_slider = "HUE SLIDER\nClick and drag to change hue.",
-		menu_colorpicker_prompt_select_previous = "PREVIOUS COLOR\nThe previous color choice.\nClick to revert your current color to this option.",
-		menu_colorpicker_prompt_select_current = "CURRENT COLOR\nYour new color choice.\nYou can click and drag to save it to the palette swatches.",
-		menu_colorpicker_prompt_hex = "HEX CODE\nThe hexadecimal color code for your current color.\Double left-click to copy hex color code to clipboard.\nRight-click to paste color from clipboard.",
-		menu_colorpicker_notif_copied = "HEX CODE\nCopied to clipboard!",
-		menu_colorpicker_prompt_palette = "PALETTE SWATCH\nClick to select this palette swatch.\nRight-click to save your current color to this palette swatch.",
-		menu_colorpicker_notif_reset_palettes_success = "PALETTE SWATCH\nSwatches have been reset to default values!"
-	})
+	if not BeardLib then 
+		--shouldn't ever be necessary since BeardLib is required for this mod
+		loc:load_localization_file( mod_path .. "localization/english.json" )
+	end
 end)
