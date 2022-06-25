@@ -3,7 +3,7 @@
 	"description" : "A utility mod to allow for easy color selection.",
 	"author" : "Offyerrocker",
 	"contact" : "Discord: Offyerrocker#3878",
-	"version" : "2",
+	"version" : "3",
 	"blt_version" : 2,
 	"color" : "255 255 255",
 	"image" : "icon.png",

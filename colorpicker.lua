@@ -6,7 +6,6 @@
 --set eyedropper position when calling setup()
 --fix pointer image on mouseover event
 
-
 ColorPicker = ColorPicker or blt_class()
 ColorPicker.queued_items = {}
 function ColorPicker.CreateQueuedMenus()
@@ -169,12 +168,12 @@ function ColorPicker:init(id,parameters,create_cb,...)
 			mouseover_tooltip = managers.localization:text("menu_colorpicker_prompt_hex"),
 			callbacks = {
 				get_color = callback(self,self,"get_current_color"),
-				leftdoubleclick = nil,
-				rightdoubleclick = nil,
-				leftclick = function()
+				leftdoubleclick = function()
 					self:copy_current_color()
 					self:set_tooltip(managers.localization:text("menu_colorpicker_notif_copied"))
 				end,
+				rightdoubleclick = nil,
+				leftclick = nil,
 				rightclick = callback(self,self,"paste_to_current_color"),
 				leftdrag = nil,
 				on_leftdrag = function()
@@ -936,13 +935,31 @@ function ColorPicker:setup(parameters)
 	
 	local palette_size = parameters.palette_box_size
 	local palette_spacing = parameters.palette_box_spacing
+	local col_mt = getmetatable(Color)
+	
 	for i = 1,self.num_palettes,1 do 
 		local j = i - 1
+		
+		local palette_color
+		local palette_color_string = "ffffff"
+		if parameters.palettes and parameters.palettes[i] then 
+			palette_color_string = parameters.palettes[i]
+			if getmetatable(palette_color_string) == col_mt then 
+				palette_color = parameters.palettes[i]
+			end
+		elseif parameters.default_palettes and parameters.default_palettes[i] then 
+			palette_color_string = parameters.default_palettes[i]
+			if getmetatable(palette_color_string) == col_mt then 
+				palette_color = parameters.default_palettes[i]
+			end
+		end
+		palette_color = palette_color or Color(palette_color_string)
+		
 		local palette_name = "palette_" .. i
 		local palette = self._panel:rect({
 			name = palette_name,
 			layer = 5,
-			color = parameters.palettes and parameters.palettes[i] or Color.white,
+			color = palette_color,
 			w = palette_size,
 			h = palette_size,
 			x = parameters.palette_box_start_x + ((palette_size + palette_spacing) * (j % parameters.palette_columns)),
@@ -1644,7 +1661,7 @@ Hooks:Add("LocalizationManagerPostInit", "colorpicker_addlocalization", function
 		menu_colorpicker_prompt_hue_slider = "HUE SLIDER\nClick and drag to change hue.",
 		menu_colorpicker_prompt_select_previous = "PREVIOUS COLOR\nThe previous color choice.\nClick to revert your current color to this option.",
 		menu_colorpicker_prompt_select_current = "CURRENT COLOR\nYour new color choice.\nYou can click and drag to save it to the palette swatches.",
-		menu_colorpicker_prompt_hex = "HEX CODE\nThe hexadecimal color code for your current color.\nLeft-click to copy hex color code to clipboard.\nRight-click to paste color from clipboard.",
+		menu_colorpicker_prompt_hex = "HEX CODE\nThe hexadecimal color code for your current color.\Double left-click to copy hex color code to clipboard.\nRight-click to paste color from clipboard.",
 		menu_colorpicker_notif_copied = "HEX CODE\nCopied to clipboard!",
 		menu_colorpicker_prompt_palette = "PALETTE SWATCH\nClick to select this palette swatch.\nRight-click to save your current color to this palette swatch.",
 		menu_colorpicker_notif_reset_palettes_success = "PALETTE SWATCH\nSwatches have been reset to default values!"
