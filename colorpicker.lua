@@ -12,8 +12,9 @@ function ColorPicker.CreateQueuedMenus()
 	if #ColorPicker.queued_items > 0 then 
 		for i,_data in pairs(ColorPicker.queued_items) do 
 			local data = table.remove(ColorPicker.queued_items,i)
-			local result = ColorPicker:new(unpack(_data.arguments))
+			local result = ColorPicker.init(_data.obj,unpack(_data.arguments))
 			if result and type(data.callback) == "function" then 
+				obj.init_done = true
 				data.callback(result)
 			end
 		end
@@ -27,16 +28,18 @@ ColorPicker.current_menu = nil
 ColorPicker.mouse0_held = false
 ColorPicker.mouse1_held = false
 function ColorPicker:init(id,parameters,create_cb,...)
+	self.init_done = false
 	if not managers.gui_data then 
 		if type(create_cb) == "function" then 
 			--queue creation
-			table.insert(ColorPicker.queued_items,{callback = create_cb,arguments = {id,parameters,create_cb,...}})
-			return
+			table.insert(ColorPicker.queued_items,{callback = create_cb,arguments = {id,parameters,create_cb,...},obj=self})
+			return self
 		else
-			log("[ColorPicker] ERROR: :new(" .. tostring(id) .. ") managers.gui_data is not yet set up! Please create your ColorPicker object after gui_data is set up, or specify a creation callback to queue the creation of your menu and set/return it after gui_data is set up.")
-			return
+			log("[ColorPicker] WARNING: New ColorPicker menu \"" .. tostring(id) .. "\" created, but managers.gui_data is not yet set up! Please make sure to check for .init_done flag before performing operations with this ColorPicker menu!")
+			return self
 		end
 	end
+	self.init_done = true
 	ColorPicker._WS = ColorPicker._WS or managers.gui_data:create_fullscreen_workspace()
 	
 	local instance_name = "ColorPicker" .. tostring(id)
@@ -1061,6 +1064,9 @@ function ColorPicker:update_hue_slider(x,y) --clbk hue slider
 end
 
 function ColorPicker:Show(parameters)
+	if not self.init_done then 
+		return
+	end
 	if parameters then 
 		--only realign things if parameters is given
 		self:setup(parameters)
