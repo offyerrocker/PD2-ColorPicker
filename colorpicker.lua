@@ -628,7 +628,7 @@ function ColorPicker:init(id,parameters,create_cb,...)
 		layer = 10,
 		x = p.hex_box_x,
 		y = p.hex_box_y,
-		text = Color.white:to_hex(),
+		text = self.color_to_hex(Color.white,
 		font = p.hex_label_font,
 		font_size = p.hex_label_font_size,
 		color = p.hex_label_color
@@ -856,7 +856,7 @@ function ColorPicker:setup(parameters)
 	hex_label:set_color(parameters.hex_label_color)
 	hex_label:set_text("000000")
 	self.center_text(hex_label,hex_box)
-	hex_label:set_text(self.current_color:to_hex())
+	hex_label:set_text(self.color_to_hex(self.current_color)
 	
 	local reset_palette_button_box = self._panel:child("reset_palette_button_box")
 	reset_palette_button_box:set_position(parameters.reset_palette_button_box_x,parameters.reset_palette_button_box_y)
@@ -1293,7 +1293,7 @@ function ColorPicker:set_tooltip(id)
 end
 
 function ColorPicker:set_hex_label(color)
-	self._panel:child("hex_label"):set_text(color:to_hex())
+	self._panel:child("hex_label"):set_text(self.color_to_hex(color)
 end
 
 function ColorPicker:get_current_color()
@@ -1346,7 +1346,7 @@ function ColorPicker:set_previous_color(color)
 end
 
 function ColorPicker:copy_current_color() --copies the hex value of the current color to the clipboard
-	Application:set_clipboard(self:get_current_color():to_hex())
+	Application:set_clipboard(self.color_to_hex(self:get_current_color()))
 end
 
 function ColorPicker:paste_to_current_color()
